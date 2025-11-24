@@ -12,6 +12,7 @@ blake3 = "1.8"
 clap = { version = "4.5", features = ["cargo"] }
 inquire = "0.9"
 regex = "1.12"
+reqwest = { version = "0.12", features = ["blocking", "json"] }
 serde = { version = "1.0", features = ["derive"] }
 time = { version = "0.3", features = ["local-offset", "macros", "serde-human-readable"] }
 toml = "0.9"
