@@ -2,7 +2,6 @@ use std::path::Path;
 use walkdir::WalkDir;
 
 pub fn generate() -> String {
-    println!("cargo:rerun-if-changed=puzzles");
     println!("cargo:rerun-if-changed=puzzles.enc");
     get_inputs()
         .into_iter()
