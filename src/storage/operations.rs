@@ -34,6 +34,15 @@ pub struct Puzzle {
     pub tests: Vec<TestCase>,
 }
 
+#[derive(Clone, Debug)]
+pub struct PartDescription {
+    pub year: u32,
+    pub day: u32,
+    pub part: u32,
+    pub description: Option<String>,
+    pub styles: Option<String>,
+}
+
 pub fn get(id: &PuzzleId, password: &str) -> Result<Puzzle, Error> {
     let metadata = read_metadata(id, password)?;
     let tests = read_tests(id, password);
@@ -47,6 +56,44 @@ pub fn get(id: &PuzzleId, password: &str) -> Result<Puzzle, Error> {
 
 pub fn get_all(password: &str) -> Result<Vec<Puzzle>, Error> {
     list()?.into_iter().map(|id| get(&id, password)).collect()
+}
+
+pub fn get_description(year: u32, day: u32, part: u32) -> Result<PartDescription, Error> {
+    let id = PuzzleId::new(year, day, part);
+    let puzzle_info_dir = Path::new(PUZZLES_DIR).join(to_puzzle_info_dir(&id));
+
+    let description = fs::read_to_string(puzzle_info_dir.join("description.html")).ok();
+    let styles = fs::read_to_string(puzzle_info_dir.join("styles.css")).ok();
+
+    Ok(PartDescription {
+        year,
+        day,
+        part,
+        description,
+        styles,
+    })
+}
+
+pub fn save_description(
+    year: u32,
+    day: u32,
+    part: u32,
+    description: Option<&str>,
+    styles: Option<&str>,
+) -> Result<(), Error> {
+    let id = PuzzleId::new(year, day, part);
+    let puzzle_info_dir = Path::new(PUZZLES_DIR).join(to_puzzle_info_dir(&id));
+
+    fs::create_dir_all(&puzzle_info_dir)?;
+
+    if let Some(html) = description {
+        fs::write(puzzle_info_dir.join("description.html"), html)?;
+    }
+    if let Some(css) = styles {
+        fs::write(puzzle_info_dir.join("styles.css"), css)?;
+    }
+
+    Ok(())
 }
 
 pub fn encrypt_all(password: &str) -> Result<(), Error> {
@@ -194,23 +241,28 @@ pub fn list() -> Result<Vec<PuzzleId>, Error> {
     }
 
     let mut puzzle_ids: Vec<PuzzleId> = WalkDir::new(puzzles_enc)
-        .min_depth(2)
-        .max_depth(2)
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| e.file_type().is_dir())
+        .filter(|e| {
+            e.file_name()
+                .to_str()
+                .is_some_and(|name| name.starts_with("part_"))
+        })
         .filter_map(|entry| {
             let path = entry.path();
-            let dir_name = path.file_name()?.to_str()?;
-            let year_name = path.parent()?.file_name()?.to_str()?;
+            let part_dir = path.file_name()?.to_str()?;
+            let day_dir = path.parent()?.file_name()?.to_str()?;
+            let year_dir = path.parent()?.parent()?.file_name()?.to_str()?;
 
             // Parse year
-            let year = year_name.parse::<u32>().ok()?;
+            let year = year_dir.parse::<u32>().ok()?;
 
-            // Parse "DD-P" format
-            let mut parts = dir_name.split('-');
-            let day = parts.next()?.parse::<u32>().ok()?;
-            let part = parts.next()?.parse::<u32>().ok()?;
+            // Parse day (DD format)
+            let day = day_dir.parse::<u32>().ok()?;
+
+            // Parse "part_P" format
+            let part = part_dir.strip_prefix("part_")?.parse::<u32>().ok()?;
 
             Some(PuzzleId::new(year, day, part))
         })
@@ -221,7 +273,11 @@ pub fn list() -> Result<Vec<PuzzleId>, Error> {
 }
 
 fn to_puzzle_dir(id: &PuzzleId) -> String {
-    format!("{}/{:02}-{}", id.year, id.day, id.part)
+    format!("{}/{:02}/part_{}/tests", id.year, id.day, id.part)
+}
+
+fn to_puzzle_info_dir(id: &PuzzleId) -> String {
+    format!("{}/{:02}/part_{}/puzzle", id.year, id.day, id.part)
 }
 
 #[derive(Debug)]

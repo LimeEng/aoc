@@ -3,7 +3,8 @@ mod operations;
 
 pub use cipher::SaltedKey;
 pub use operations::{
-    Error, Puzzle, PuzzleMetadata, TestCase, decrypt_all, encrypt_all, get, get_all, list,
+    Error, PartDescription, Puzzle, PuzzleMetadata, TestCase, decrypt_all, encrypt_all, get,
+    get_all, get_description, list, save_description,
 };
 
 /// Directory containing plaintext puzzle files

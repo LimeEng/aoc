@@ -5,6 +5,7 @@ use std::{
     path::Path,
 };
 
+mod discovery;
 mod solvers;
 mod tests;
 

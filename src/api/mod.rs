@@ -3,7 +3,13 @@ use reqwest::{
     blocking::{Client, Response},
     header,
 };
+use scraper::{Html, Selector};
 use time::{Date, Month, OffsetDateTime, Time, UtcOffset};
+
+pub struct PuzzlePrompt {
+    pub description: String,
+    pub styles: String,
+}
 
 pub struct AdventOfCode {
     client: Client,
@@ -40,6 +46,53 @@ impl AdventOfCode {
         self.get_text(&input_url(id))
     }
 
+    pub fn part_1_prompt(&self, year: u32, day: u32) -> Result<PuzzlePrompt, ApiError> {
+        let html = self.get_text(&day_url(year, day))?;
+        self.extract_part_prompt(&html, 1)
+    }
+
+    pub fn part_2_prompt(&self, year: u32, day: u32) -> Result<PuzzlePrompt, ApiError> {
+        let html = self.get_text(&day_url(year, day))?;
+        self.extract_part_prompt(&html, 2)
+    }
+
+    fn extract_part_prompt(&self, html: &str, part: u32) -> Result<PuzzlePrompt, ApiError> {
+        let document = Html::parse_document(html);
+
+        let article_selector = Selector::parse("article.day-desc").unwrap();
+        let article = document
+            .select(&article_selector)
+            .nth((part - 1) as usize)
+            .ok_or(ApiError::ParseError)?;
+
+        let description = article.html();
+
+        // Fetch external stylesheets (only default, not alternate)
+        let link_selector = Selector::parse("link[rel=\"stylesheet\"]").unwrap();
+        let styles = document
+            .select(&link_selector)
+            .filter(|link| {
+                // Exclude alternate stylesheets
+                link.value().attr("rel") == Some("stylesheet")
+            })
+            .filter_map(|link| link.value().attr("href"))
+            .filter_map(|href| {
+                let css_url = if href.starts_with("http") {
+                    href.to_string()
+                } else {
+                    format!("https://adventofcode.com{href}")
+                };
+                self.get_text(&css_url).ok()
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        Ok(PuzzlePrompt {
+            description,
+            styles,
+        })
+    }
+
     pub fn submit(&self, id: &PuzzleId, solution: String) -> Result<String, ApiError> {
         let params = [("level", id.part.to_string()), ("answer", solution)];
         let response = self.client.post(answer_url(id)).form(&params).send()?;
@@ -74,6 +127,11 @@ fn to_url(id: &PuzzleId) -> String {
 }
 
 #[must_use]
+fn day_url(year: u32, day: u32) -> String {
+    format!("https://adventofcode.com/{year}/day/{day}")
+}
+
+#[must_use]
 fn input_url(id: &PuzzleId) -> String {
     format!("{}/input", to_url(id))
 }
@@ -87,6 +145,7 @@ fn answer_url(id: &PuzzleId) -> String {
 pub enum ApiError {
     InvalidHeader(header::InvalidHeaderValue),
     Reqwest(reqwest::Error),
+    ParseError,
 }
 
 impl From<header::InvalidHeaderValue> for ApiError {
