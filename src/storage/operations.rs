@@ -163,8 +163,14 @@ fn read_tests(id: &PuzzleId, password: &str) -> Vec<TestCase> {
         })
         .collect();
 
-    // Sort tests by filename for consistent ordering
-    test_data.sort_by(|a, b| a.0.cmp(&b.0));
+    test_data.sort_by(|a, b| {
+        let extract_num = |s: &str| -> Option<u32> { s.strip_prefix("test_")?.parse().ok() };
+
+        match (extract_num(&a.0), extract_num(&b.0)) {
+            (Some(num_a), Some(num_b)) => num_a.cmp(&num_b),
+            _ => a.0.cmp(&b.0), // Fallback to string comparison
+        }
+    });
 
     test_data.into_iter().map(|(_, test)| test).collect()
 }
