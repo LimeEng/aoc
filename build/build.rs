@@ -5,22 +5,38 @@ use std::{
     path::Path,
 };
 
+mod benchmarks;
+mod cipher;
+mod discovery;
+mod docs;
 mod solvers;
 mod tests;
 
-fn main() -> io::Result<()> {
-    let out_dir = env::var("OUT_DIR").unwrap();
-    let out_dir = Path::new(&out_dir);
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct PuzzleId {
+    pub year: u32,
+    pub day: u32,
+    pub part: u32,
+}
 
-    write(out_dir.join("solvers.rs"), &solvers::generate())?;
-    write(out_dir.join("tests.rs"), &tests::generate())?;
+fn main() -> io::Result<()> {
+    let password = env::var("AOC_KEY").unwrap();
+
+    write("solvers.rs", &solvers::generate())?;
+    write("tests.rs", &tests::generate())?;
+    write("benchmarks.rs", &benchmarks::generate())?;
+
+    docs::generate(&password)?;
+
     Ok(())
 }
 
-fn write<P>(target: P, contents: &str) -> io::Result<()>
+fn write<P>(filename: P, contents: &str) -> io::Result<()>
 where
     P: AsRef<Path>,
 {
-    let mut output = File::create(target)?;
+    let out_dir = env::var("OUT_DIR").unwrap();
+    let path = Path::new(&out_dir).join(filename);
+    let mut output = File::create(path)?;
     writeln!(&mut output, "{contents}")
 }

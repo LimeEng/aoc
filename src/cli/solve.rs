@@ -3,6 +3,11 @@ use clap::{Arg, ArgMatches, Command, value_parser};
 use inquire::Select;
 use std::{env, time::Instant};
 
+enum InputType<'a> {
+    Test(&'a storage::TestCase),
+    Input(&'a storage::PuzzleInput),
+}
+
 #[must_use]
 pub fn command() -> Command {
     Command::new("solve")
@@ -48,31 +53,57 @@ fn try_execute(matches: &ArgMatches) -> Result<(), String> {
 }
 
 fn run_puzzle(puzzle: &storage::Puzzle) -> Result<(), String> {
-    let tests: Vec<_> = puzzle.tests.iter().collect();
-    let test =
-        select_one(&tests, format_test_option).ok_or("No test cases found for this puzzle")?;
+    let mut options: Vec<(InputType, String)> = Vec::new();
 
-    run_test(puzzle, test);
+    for test in &puzzle.tests {
+        options.push((InputType::Test(test), format!("Test {}", test.id)));
+    }
+
+    for input in &puzzle.inputs {
+        options.push((InputType::Input(input), format!("Input {}", input.id)));
+    }
+
+    if options.is_empty() {
+        return Err("No test cases or inputs found for this puzzle".to_string());
+    }
+
+    let selected = if options.len() == 1 {
+        0
+    } else {
+        let labels: Vec<_> = options.iter().map(|(_, label)| label.clone()).collect();
+        let selection = Select::new("Select option:", labels.clone())
+            .prompt()
+            .map_err(|_| "Selection cancelled")?;
+        labels.iter().position(|s| s == &selection).unwrap()
+    };
+
+    let (input_type, description) = &options[selected];
+    match input_type {
+        InputType::Test(test) => run_test(puzzle, description, &test.input, &test.expected),
+        InputType::Input(input) => run_test(puzzle, description, &input.input, &input.expected),
+    }
+
     Ok(())
 }
 
-fn run_test(puzzle: &storage::Puzzle, test: &storage::TestCase) {
+fn run_test(puzzle: &storage::Puzzle, description: &str, input: &str, expected: &str) {
     let start = Instant::now();
-    let solution = solve(puzzle.id.year, puzzle.id.day, puzzle.id.part, &test.input);
+    let solution = solve(puzzle.id.year, puzzle.id.day, puzzle.id.part, input);
     let elapsed = start.elapsed();
 
     match solution {
         Some(result) => {
             println!("=== Solution ===");
+            println!("{description}");
             println!(
                 "Year: {}, Day: {:02}, Part: {}",
                 puzzle.id.year, puzzle.id.day, puzzle.id.part
             );
             println!("Time: {}ms", elapsed.as_millis());
             println!("Result  : {result}");
-            println!("Expected: {}", test.expected);
+            println!("Expected: {expected}");
 
-            if result == test.expected {
+            if result == expected {
                 println!("✓ PASS");
             } else {
                 println!("✗ FAIL");
@@ -108,18 +139,8 @@ fn select_one<'a, T>(items: &'a [&T], format_fn: fn(&T, usize) -> String) -> Opt
 }
 
 fn format_puzzle_option(puzzle: &storage::Puzzle, _: usize) -> String {
-    let title = puzzle
-        .metadata
-        .title
-        .as_ref()
-        .map(|t| format!(" - {t}"))
-        .unwrap_or_default();
     format!(
-        "{} Day {:02} Part {}{title}",
-        puzzle.id.year, puzzle.id.day, puzzle.id.part
+        "{} Day {:02} Part {} - {}",
+        puzzle.id.year, puzzle.id.day, puzzle.id.part, puzzle.metadata.title
     )
-}
-
-fn format_test_option(_test: &storage::TestCase, index: usize) -> String {
-    format!("Test {}", index + 1)
 }

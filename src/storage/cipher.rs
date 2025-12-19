@@ -2,6 +2,7 @@ use aes_gcm_siv::{
     Aes256GcmSiv, Error, KeyInit, Nonce,
     aead::{Aead, OsRng, generic_array::GenericArray, rand_core::RngCore},
 };
+use blake3::Hasher;
 
 const SALT_LENGTH: usize = 32;
 const NONCE_LENGTH: usize = 12;
@@ -50,8 +51,6 @@ impl SaltedKey {
             // Reuse existing salt and nonce
             return Self::extract(password, encrypted);
         }
-
-        // No existing data or invalid format, generate new
         Self::new(password)
     }
 
@@ -76,11 +75,10 @@ impl SaltedKey {
         cipher.decrypt(Nonce::from_slice(&self.nonce), cipher_text)
     }
 
-    fn derive_key(password: &[u8], salt: &[u8]) -> [u8; 32] {
+    fn derive_key(password: &[u8], salt: &[u8]) -> [u8; KEY_LENGTH] {
         // Blake3 is used instead of Argon2 for performance reasons.
         // The encrypted data has minimal security requirements as it consists
         // solely of puzzle data that is publicly available.
-        use blake3::Hasher;
         let mut hasher = Hasher::new();
         hasher.update(password);
         hasher.update(salt);
