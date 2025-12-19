@@ -1,66 +1,13 @@
-use walkdir::WalkDir;
-
-#[derive(Debug)]
-struct Solution {
-    year: i32,
-    day: i32,
-    part: i32,
-}
+use crate::{PuzzleId, discovery::discover_solvers};
+use std::fmt::Write;
 
 pub fn generate() -> String {
     println!("cargo:rerun-if-changed=src/years");
-    let solutions = discover_solutions();
+    let solutions = discover_solvers();
     generate_solvers(&solutions)
 }
 
-fn discover_solutions() -> Vec<Solution> {
-    WalkDir::new("src/years")
-        .min_depth(3)
-        .max_depth(3)
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|e| e.file_type().is_file())
-        .filter_map(|e| parse_solution(&e))
-        .collect()
-}
-
-fn parse_solution(entry: &walkdir::DirEntry) -> Option<Solution> {
-    let path = entry.path();
-
-    // Extract part from filename (e.g., "part_1.rs" -> 1)
-    let part = path
-        .file_stem()?
-        .to_str()?
-        .strip_prefix("part_")?
-        .parse()
-        .ok()?;
-
-    // Extract day from parent directory name (e.g., "day_01" -> 1)
-    let day = path
-        .parent()?
-        .file_name()?
-        .to_str()?
-        .strip_prefix("day_")?
-        .trim_start_matches('0')
-        .parse()
-        .ok()?;
-
-    // Extract year from grandparent directory name (e.g., "year_2024" -> 2024)
-    let year = path
-        .parent()?
-        .parent()?
-        .file_name()?
-        .to_str()?
-        .strip_prefix("year_")?
-        .parse()
-        .ok()?;
-
-    Some(Solution { year, day, part })
-}
-
-fn generate_solvers(solutions: &[Solution]) -> String {
-    use std::fmt::Write;
-
+fn generate_solvers(solutions: &[PuzzleId]) -> String {
     let mut code = String::from(
         "\
 #[must_use]

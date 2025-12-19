@@ -1,9 +1,10 @@
 mod cipher;
-mod operations;
+mod components;
 
 pub use cipher::SaltedKey;
-pub use operations::{
-    Error, Puzzle, PuzzleMetadata, TestCase, decrypt_all, encrypt_all, get, get_all, list,
+pub use components::{
+    Description, Puzzle, PuzzleInput, PuzzleMetadata, TestCase, decrypt_all, encrypt_all, get,
+    get_all, get_description, read_input, save_description, save_input,
 };
 
 /// Directory containing plaintext puzzle files
